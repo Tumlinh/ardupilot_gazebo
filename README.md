@@ -1,5 +1,8 @@
 # Ardupilot Gazebo Plugin & Models
 
+This fork adds support for simulating multiple simultaneous Iris UAVs in Gazebo.  
+On another note, the FDM (light dynamics model) message is adjusted to expose the rangefinder simulated by Gazebo to ArduPilot. There are alternative solutions (e.g. using ROS to handle the rangefinder), however this solutions allows to visualise the rangefinder and all the other components of the UAVs in Gazebo.  
+
 ## Requirements :
 Native Ubuntu Xenial(16.04 LTS) able to run full 3D graphics.
 
