@@ -152,10 +152,10 @@ struct fdmPacket
 
   /// \brief Battery Current.
   double battery_current = 0.0;
+*/
 
   /// \brief Model rangefinder value. Default to -1 to use sitl rangefinder.
   double rangefinder = -1.0;
-*/
 };
 
 /// \brief Control class
@@ -397,10 +397,13 @@ class gazebo::ArduPilotPluginPrivate
   public: std::string listen_addr;
 
   /// \brief Ardupilot port for receiver socket
-  public: uint16_t fdm_port_in;
+  public: uint16_t fdm_port_in_start;
 
   /// \brief Ardupilot port for sender socket
-  public: uint16_t fdm_port_out;
+  public: uint16_t fdm_port_out_start;
+
+  /// \brief Step in ports between two consecutive agents
+  public: uint16_t fdm_port_step;
 
   /// \brief Pointer to an IMU sensor
   public: sensors::ImuSensorPtr imuSensor;
@@ -817,12 +820,13 @@ void ArduPilotPlugin::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf)
              << "  found "  << " [" << gpsName << "].\n";
     }
   }
+*/
 
   // Get Rangefinder
   // TODO add sonar
     std::string rangefinderName;
   getSdfParam<std::string>(_sdf, "rangefinderName", rangefinderName, "rangefinder_sensor");
-  std::vector<std::string> rangefinderScopedName = getSensorScopedName(this->dataPtr->model, rangefinderName);
+  std::vector<std::string> rangefinderScopedName = this->dataPtr->model->SensorScopedName(rangefinderName);
   if (rangefinderScopedName.size() > 1)
   {
     gzwarn << "[" << this->dataPtr->modelName << "] "
@@ -873,7 +877,7 @@ void ArduPilotPlugin::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf)
     if (!this->dataPtr->rangefinderSensor)
     {
       gzwarn << "[" << this->dataPtr->modelName << "] "
-             << "ranfinder [" << rangefinderName
+             << "rangefinder [" << rangefinderName
              << "] not found, skipping rangefinder support.\n" << "\n";
     }
     else
@@ -882,7 +886,7 @@ void ArduPilotPlugin::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf)
              << "  found "  << " [" << rangefinderName << "].\n";
     }
   }
-*/
+
   // Controller time control.
   this->dataPtr->lastControllerUpdateTime = 0;
 
@@ -946,26 +950,36 @@ bool ArduPilotPlugin::InitArduPilotSockets(sdf::ElementPtr _sdf) const
       this->dataPtr->fdm_addr, "127.0.0.1");
   getSdfParam<std::string>(_sdf, "listen_addr",
       this->dataPtr->listen_addr, "127.0.0.1");
-  getSdfParam<uint16_t>(_sdf, "fdm_port_in",
-      this->dataPtr->fdm_port_in, 9002);
-  getSdfParam<uint16_t>(_sdf, "fdm_port_out",
-      this->dataPtr->fdm_port_out, 9003);
+  getSdfParam<uint16_t>(_sdf, "fdm_port_in_start",
+      this->dataPtr->fdm_port_in_start, 9002);
+  getSdfParam<uint16_t>(_sdf, "fdm_port_out_start",
+      this->dataPtr->fdm_port_out_start, 9003);
+  getSdfParam<uint16_t>(_sdf, "fdm_port_step",
+      this->dataPtr->fdm_port_step, 10);
+
+  // Determine ports based on agent index
+  std::string agent_id = this->dataPtr->model->GetParentModel()->GetName();
+  const uint16_t index = std::stoi(agent_id.substr(strlen("agent")));
+  const uint16_t fdm_port_in = this->dataPtr->fdm_port_in_start
+    + index * this->dataPtr->fdm_port_step;
+  const uint16_t fdm_port_out = this->dataPtr->fdm_port_out_start
+    + index * this->dataPtr->fdm_port_step;
 
   if (!this->dataPtr->socket_in.Bind(this->dataPtr->listen_addr.c_str(),
-      this->dataPtr->fdm_port_in))
+      fdm_port_in))
   {
     gzerr << "[" << this->dataPtr->modelName << "] "
           << "failed to bind with " << this->dataPtr->listen_addr
-          << ":" << this->dataPtr->fdm_port_in << " aborting plugin.\n";
+          << ":" << fdm_port_in << " aborting plugin.\n";
     return false;
   }
 
   if (!this->dataPtr->socket_out.Connect(this->dataPtr->fdm_addr.c_str(),
-      this->dataPtr->fdm_port_out))
+      fdm_port_out))
   {
     gzerr << "[" << this->dataPtr->modelName << "] "
           << "failed to bind with " << this->dataPtr->fdm_addr
-          << ":" << this->dataPtr->fdm_port_out << " aborting plugin.\n";
+          << ":" << fdm_port_out << " aborting plugin.\n";
     return false;
   }
 
