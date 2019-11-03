@@ -1305,19 +1305,26 @@ void ArduPilotPlugin::SendState() const
         pkt.latitude = this->dataPtr->gpsSensor->Latitude().Degree();
         pkt.altitude = this->dataPtr->gpsSensor->Altitude();
     }
+*/
 
     // TODO : make generic enough to accept sonar/gpuray etc. too
     if (!this->dataPtr->rangefinderSensor)
     {
 
     } else {
-        // Rangefinder value can not be send as Inf to ardupilot
-        const double range = this->dataPtr->rangefinderSensor->Range(0);
-        pkt.rangefinder = std::isinf(range) ? 0.0 : range;
+        // Get minimum value
+        std::vector< double> ranges;
+        this->dataPtr->rangefinderSensor->Ranges(ranges);
+        const double min_range = *min_element(ranges.begin(), ranges.end());
+
+        // Rangefinder value can not be sent as Inf to ardupilot
+        pkt.rangefinder = std::isinf(min_range) ? 0.0 : min_range;
+
+        // There is no need to filter the values, this should be done by the FCU's Kalman filter
     }
 
-  // airspeed :     wind = Vector3(environment.wind.x, environment.wind.y, environment.wind.z)
+   // airspeed :     wind = Vector3(environment.wind.x, environment.wind.y, environment.wind.z)
    // pkt.airspeed = (pkt.velocity - wind).length()
-*/
+
   this->dataPtr->socket_out.Send(&pkt, sizeof(pkt));
 }
